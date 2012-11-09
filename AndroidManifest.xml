@@ -21,6 +21,7 @@
             </intent-filter>
             
         </activity>
+        <activity android:name="OAuthActivity"></activity>
        
     </application>
    <uses-permission android:name="android.permission.INTERNET"/>

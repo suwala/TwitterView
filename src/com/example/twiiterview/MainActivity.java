@@ -11,9 +11,14 @@ import twitter4j.conf.ConfigurationBuilder;
 import twitter4j.conf.ConfigurationContext;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.webkit.WebView;
@@ -24,141 +29,142 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
-	static final String CALLBACK_URL = "http://twitter.com/";
-	static final String CONSUMER_ID = "CN1krVYeragTQdJYEm4BA";
-	static final String CONSUMER_SECRET = "1DESgiLUiUnvfMnoxO90XZPExIhiJt1cS5IAFbI1w";
-	private RequestToken _reqToken = null;
+
+	
+
 	private Twitter _twitter = null;
 	public Configuration config;
 	public static OAuthAuthorization myOauth;
 	public static RequestToken requestToken;
+	
+	static final String CALLBACK_URL = "http://twitter.com/";
+	static final String CONSUMER_ID = "CN1krVYeragTQdJYEm4BA";
+	static final String CONSUMER_SECRET = "1DESgiLUiUnvfMnoxO90XZPExIhiJt1cS5IAFbI1w";
+	private RequestToken _reqToken = null;
+	
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// TODO 自動生成されたメソッド・スタブ
+		
+		MenuInflater mi = getMenuInflater();
+		mi.inflate(R.menu.activity_main, menu);
+		
+		return super.onCreateOptionsMenu(menu);
+		
+	}
+	
+	public void now(View v){
+
+		SharedPreferences pref = getSharedPreferences("twitter", MODE_PRIVATE);
+
+		String oauthToken  = pref.getString("oauth_token", "");
+		String oauthTokenSecret = pref.getString("oauth_token_secret", "");
+
+		//Log.d("oauthTOken",oauthToken);
+		if(oauthToken.equals("")){
+			this.logIn();
+
+		}else{
+			Log.d("token",oauthToken+":"+oauthTokenSecret);
+
+			ConfigurationBuilder builder = new ConfigurationBuilder();
+			builder.setOAuthConsumerKey(CONSUMER_ID);
+			builder.setOAuthConsumerSecret(CONSUMER_SECRET);
+			builder.setOAuthAccessToken(oauthToken);
+			builder.setOAuthAccessTokenSecret(oauthTokenSecret);
+			Configuration config = builder.build();
+
+			Twitter twitter = new TwitterFactory(config).getInstance();
+			try {
+				Integer i = (int)(Math.random()*10);
+				
+				twitter.updateStatus("出目は"+i.toString()+" #ictTestQuiz");
+				
+			} catch (TwitterException e) {
+				// TODO 自動生成された catch ブロック
+				Toast.makeText(this, e.toString(),Toast.LENGTH_SHORT).show();
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
-        ConfigurationBuilder builder = new ConfigurationBuilder();  
-        builder.setOAuthConsumerKey(CONSUMER_ID);  
+    
+        
+    }
+    
+    public void logIn(){
+    	
+    	ConfigurationBuilder builder = new ConfigurationBuilder();  
+        builder.setOAuthConsumerKey(CONSUMER_ID);
         builder.setOAuthConsumerSecret(CONSUMER_SECRET);  
         Configuration configuration = builder.build();
         
         myOauth = new OAuthAuthorization(configuration);
         myOauth.setOAuthAccessToken(null);
         try {
-			requestToken = myOauth.getOAuthRequestToken(CALLBACK_URL);
-		} catch (TwitterException e) {
-			// TODO 自動生成された catch ブロック
-			e.printStackTrace();
-		}
-        
-        this.nownow();
-        
-        
-        //setContentView(R.layout.activity_main);
-               
+        	requestToken = myOauth.getOAuthRequestToken(CALLBACK_URL);
+        } catch (TwitterException e) {
+        	// TODO 自動生成された catch ブロック
+        	e.printStackTrace();
+        }
+        Log.d("oauthTOken","null");
+        Intent intent = new Intent(this,OAuthActivity.class);
+        intent.putExtra("auth_url", requestToken.getAuthorizationURL());
+        this.startActivityForResult(intent, 0);
+
     }
-   
-
-    public void nownow(){
-    	this._twitter = new TwitterFactory().getInstance();
-    	this._twitter.setOAuthConsumer(CONSUMER_ID, CONSUMER_SECRET);
-
-    	try{
-    		this._reqToken = this._twitter.getOAuthRequestToken(CALLBACK_URL);
-    		//Toast.makeText(this, this._reqToken.getAuthorizationURL(), Toast.LENGTH_SHORT).show();
-    	}catch(TwitterException e){
-    		e.printStackTrace();
+ 
+    @Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// TODO 自動生成されたメソッド・スタブ
+    	
+    	switch (item.getItemId()) {
+		case R.id.menu_settings:
+			this.clearPref();
+			break;
     	}
-    	//Log.d("main","aaa"+this._reqToken.getAuthorizationURL());
-    	//Toast.makeText(this, this._reqToken.getAuthorizationURL(), Toast.LENGTH_SHORT).show();
-    	
-    	this.callOauth(_reqToken.getAuthorizationURL());
-    	
-    	/*
-    	ConfigurationBuilder builder = new ConfigurationBuilder();
-    	builder.setOAuthConsumerKey(CONSUMER_ID);
-    	builder.setOAuthConsumerSecret(CONSUMER_SECRET);
-    	builder.setOAuthAccessToken(oAuthAccessToken)
-    	*/
-    }
+		return super.onOptionsItemSelected(item);
+	}
+
     
-    private void callOauth(String _url){
-    	
-    	WebView webView = new WebView(this);
-    	
-    	LinearLayout _ll = (LinearLayout)this.findViewById(R.id.LinearLayout01);
-    	_ll.addView(webView);
-    	webView.setWebViewClient(new WebViewClient(){
-    		
-    		// ページ描画完了時に呼ばれる。
-    		public void onPageFinished(WebView view, String url) {
-    			super.onPageFinished(view, url);
-    			
-    			//TwitterDevelopersで登録したCallbackURLが戻ってくるので　URLが一致したとき認証が成功したものとする
-    			if(url != null && url.startsWith(CALLBACK_URL)){
-    				//URLパラメータを分解する
-    				 String[] urlParameters = url.split("\\?")[1].split("&");
-    				 String oauthToken = "";
-    				 String oauthVerifier = "";
+    @Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+		// TODO 自動生成されたメソッド・スタブ
+    	//super.onActivityResult(requestCode, resultCode, intent);
+    	if(requestCode == 0){
+    		Log.d("main","main");
+    		try {
+    			AccessToken accessToken = myOauth.getOAuthAccessToken(requestToken,intent.getExtras().getString("oauth_verifier"));
+    			SharedPreferences pref = getSharedPreferences("twitter", MODE_PRIVATE);
+    			SharedPreferences.Editor editor = pref.edit();
+    			editor.putString("oauth_token", accessToken.getToken());
+    			editor.putString("oauth_token_secret", accessToken.getTokenSecret());
+    			editor.putString("status", "available");
+    			editor.commit();
 
-    				 // oauth_tokenをURLパラメータから切り出す。
-    				 if(urlParameters[0].startsWith("oauth_token")){
-    					 oauthToken = urlParameters[0].split("=")[1];
-    				 }else if(urlParameters[1].startsWith("oauth_token")){
-    					 oauthToken = urlParameters[1].split("=")[1];
-    				 }
-    				 
-    				 // oauth_verifierをURLパラメータから切り出す。
-    				 if(urlParameters[0].startsWith("oauth_verifier")){
-    					 oauthVerifier = urlParameters[0].split("=")[1];
-    				 }else if(urlParameters[1].startsWith("oauth_verifier")){
-    					 oauthVerifier = urlParameters[1].split("=")[1];
-    				 }
+    			Log.d("result",accessToken.getToken()+":"+accessToken.getTokenSecret());
 
-    				 Toast.makeText(MainActivity.this, oauthToken, Toast.LENGTH_SHORT).show();
-    				 Toast.makeText(MainActivity.this, oauthVerifier, Toast.LENGTH_SHORT).show();
-
-    				 AccessToken accessToken = null;
-
-    				 try {
-    					 accessToken =
-    						 myOauth.getOAuthAccessToken(requestToken,oauthVerifier);
-    					 
-    					 ConfigurationBuilder builder = new ConfigurationBuilder();
-        				 builder.setOAuthConsumerKey(CONSUMER_ID);
-        				 builder.setOAuthConsumerSecret(CONSUMER_SECRET);
-        				 builder.setOAuthAccessToken(oauthToken);
-        				 builder.setOAuthAccessTokenSecret(accessToken.getTokenSecret());
-        				 Configuration config = builder.build();
-
-        				 Twitter twitter = new TwitterFactory(config).getInstance();
-        				 try {
-        					 twitter.updateStatus("てすとなう");
-        					 Log.d("test","test");
-        				 } catch (TwitterException e) {
-        					 // TODO 自動生成された catch ブロック
-        					 e.printStackTrace();
-        				 }
-    					 
-    					 
-    				 } catch (TwitterException e1) {
-    					 // TODO 自動生成された catch ブロック
-    					 e1.printStackTrace();
-    				 }
-
-    				 
-    			}
+    		} catch (TwitterException e) {
+    			// TODO 自動生成された catch ブロック
+    			e.printStackTrace();
     		}
-
-    	});
-    	
-    	//Activity1で設定した認証ページを表示。
-    	webView.loadUrl(_url);
-    	
-    	
-
+    	}
     	
     }
     
+    public void clearPref(){
+    	
+    	SharedPreferences pref = getSharedPreferences("twitter", MODE_PRIVATE);
+    	Editor editor = pref.edit();
+    	editor.clear().commit();
+    	
+    }
+
 }
